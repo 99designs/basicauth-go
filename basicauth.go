@@ -1,6 +1,7 @@
 package basicauth
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 )
@@ -24,9 +25,17 @@ func New(realm string, credentials map[string][]string) func(http.Handler) http.
 			}
 
 			for _, validPassword := range validPasswords {
-				if password == validPassword {
-					next.ServeHTTP(w, r)
-					return
+				validPasswordBytes := []byte(validPassword)
+				passwordBytes := []byte(password)
+				// take the same amount of time if the lengths are different
+				// this is required since ConstantTimeCompare returns immediately when slices of different length are compared
+				if len(password) != len(validPassword) {
+					subtle.ConstantTimeCompare(validPasswordBytes, validPasswordBytes)
+				} else {
+					if subtle.ConstantTimeCompare(passwordBytes, validPasswordBytes) == 1 {
+						next.ServeHTTP(w, r)
+						return
+					}
 				}
 			}
 
